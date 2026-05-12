@@ -14,7 +14,7 @@ import { REQUEST_TIMEOUT } from './constants.js';
 export interface OmniRouteCombo {
   id: string;
   name: string;
-  models: string[];
+  models: Array<string | { model?: string; id?: string }>;
   strategy: 'priority' | 'weighted' | 'round-robin' | 'random' | 'least-used' | 'cost-optimized';
   config: {
     maxRetries?: number;
@@ -139,7 +139,17 @@ export async function resolveUnderlyingModels(
   const combo = combos.get(modelId);
   if (combo) {
     console.log(`[OmniRoute] Resolved combo "${modelId}" to ${combo.models.length} underlying models`);
-    return combo.models;
+    return combo.models
+      .map((m) => {
+        if (typeof m === 'string') return m;
+        if (m && typeof m === 'object') {
+          const modelId = (m as Record<string, unknown>).model ?? (m as Record<string, unknown>).id;
+          if (typeof modelId === 'string') return modelId;
+        }
+        console.warn('[OmniRoute] Unexpected model entry in combo:', m);
+        return null;
+      })
+      .filter((m): m is string => m !== null);
   }
 
   // Not a combo, return as-is
