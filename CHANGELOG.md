@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented in this file.
 
+## [1.1.2] - 2026-05-13
+
+### Fixed
+
+- Fixed model picker only showing fallback models on OpenCode >=1.14.47 by eagerly fetching live models in the `config` hook before OpenCode reads `provider.models`. (@jms830)
+- Refactored `createRuntimeConfig` to accept `options` directly for reuse across both `config` and `loader` hooks.
+
+### Added
+
+- Added `readAuthFromStore()` helper to read the stored OmniRoute API key from `~/.local/share/opencode/auth.json` during the `config` hook.
+- Added regression test for eager model fetching in the config hook.
+
 ## [1.1.1] - 2026-05-12
 
 ### Fixed

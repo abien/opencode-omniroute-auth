@@ -1,12 +1,17 @@
 import { afterEach, test } from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdir, writeFile, rm } from 'fs/promises';
+import { join } from 'path';
+import { tmpdir } from 'os';
 
 import OmniRouteAuthPlugin from '../dist/index.js';
 
 const ORIGINAL_FETCH = global.fetch;
+const ORIGINAL_HOME = process.env.HOME;
 
 afterEach(() => {
   global.fetch = ORIGINAL_FETCH;
+  process.env.HOME = ORIGINAL_HOME;
 });
 
 function createModelsResponse() {
@@ -279,4 +284,54 @@ test('gemini schema sanitization applies to responses endpoint request objects',
   assert.ok(forwardedBody);
   assert.equal(forwardedBody.tools[0].input_schema.additionalProperties, undefined);
   assert.equal(forwardedBody.tools[0].input_schema.properties.query.items.additionalProperties, undefined);
+});
+
+test('config hook eagerly fetches models when auth is available', async () => {
+  const tempHome = join(tmpdir(), `opencode-test-${Date.now()}`);
+  try {
+    await mkdir(join(tempHome, '.local', 'share', 'opencode'), { recursive: true });
+    await writeFile(
+      join(tempHome, '.local', 'share', 'opencode', 'auth.json'),
+      JSON.stringify({
+        omniroute: { type: 'api', key: 'test-key' },
+      }),
+    );
+    process.env.HOME = tempHome;
+
+    global.fetch = async (input) => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url.endsWith('/v1/models')) {
+        return new Response(
+          JSON.stringify({
+            object: 'list',
+            data: [{ id: 'custom-model', name: 'Custom Model' }],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    };
+
+    const plugin = await OmniRouteAuthPlugin({});
+    const config = {
+      provider: {
+        omniroute: {
+          options: {
+            baseURL: 'http://localhost:20128/v1',
+            apiMode: 'chat',
+          },
+        },
+      },
+    };
+
+    await plugin.config(config);
+
+    assert.ok(config.provider.omniroute.models['custom-model']);
+    assert.equal(config.provider.omniroute.models['custom-model'].name, 'Custom Model');
+  } finally {
+    await rm(tempHome, { recursive: true, force: true });
+  }
 });

@@ -365,7 +365,7 @@ If models aren't loading:
 
 ### Plugin Not Loading Outside This Repo
 
-If the plugin loads only through a local shim (for example from `.opencode/plugins` or `.opencode/plugi`) but not from npm in `opencode.json`:
+If the plugin loads only through a local shim (for example from `.opencode/plugins`) but not from npm in `opencode.json`:
 
 1. Ensure you are using `opencode-omniroute-auth@1.0.1` or newer
 2. Confirm your config includes `"plugin": ["opencode-omniroute-auth"]`

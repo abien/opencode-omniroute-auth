@@ -1,4 +1,7 @@
 import type { Plugin, Hooks } from '@opencode-ai/plugin';
+import { homedir } from 'os';
+import { readFile } from 'fs/promises';
+import { join } from 'path';
 import type {
   OmniRouteApiMode,
   OmniRouteConfig,
@@ -32,6 +35,17 @@ export const OmniRouteAuthPlugin: Plugin = async (_input) => {
       const apiMode = getApiMode(existingProvider?.options);
       const providerApi = resolveProviderApi(existingProvider?.api, apiMode);
 
+      let models: OmniRouteModel[] = OMNIROUTE_DEFAULT_MODELS;
+      try {
+        const auth = await readAuthFromStore(OMNIROUTE_PROVIDER_ID);
+        if (auth?.key) {
+          const runtimeConfig = createRuntimeConfig(existingProvider?.options ?? {}, auth.key);
+          models = await fetchModels(runtimeConfig, auth.key, false);
+        }
+      } catch (error) {
+        console.warn('[OmniRoute] Eager model fetch failed, using defaults:', error);
+      }
+
       providers[OMNIROUTE_PROVIDER_ID] = {
         ...existingProvider,
         name: existingProvider?.name ?? OMNIROUTE_PROVIDER_NAME,
@@ -46,7 +60,7 @@ export const OmniRouteAuthPlugin: Plugin = async (_input) => {
         models:
           existingProvider?.models && Object.keys(existingProvider.models).length > 0
             ? existingProvider.models
-            : toProviderModels(OMNIROUTE_DEFAULT_MODELS, baseUrl),
+            : toProviderModels(models, baseUrl),
       };
 
       config.provider = providers;
@@ -79,7 +93,7 @@ async function loadProviderOptions(
     );
   }
 
-  const config = createRuntimeConfig(provider, auth.key);
+  const config = createRuntimeConfig(provider.options, auth.key);
 
   let models: OmniRouteModel[] = [];
   try {
@@ -103,22 +117,46 @@ async function loadProviderOptions(
   };
 }
 
-function createRuntimeConfig(provider: ProviderDefinition, apiKey: string): OmniRouteConfig {
-  const baseUrl = getBaseUrl(provider.options);
-  const modelCacheTtl = getPositiveNumber(provider.options, 'modelCacheTtl');
-  const refreshOnList = getBoolean(provider.options, 'refreshOnList');
-  const modelsDev = getModelsDevConfig(provider.options);
-  const modelMetadata = getModelMetadataConfig(provider.options);
+function createRuntimeConfig(
+  options: Record<string, unknown> | undefined,
+  apiKey: string,
+): OmniRouteConfig {
+  const baseUrl = getBaseUrl(options);
+  const modelCacheTtl = getPositiveNumber(options, 'modelCacheTtl');
+  const refreshOnList = getBoolean(options, 'refreshOnList');
+  const modelsDev = getModelsDevConfig(options);
+  const modelMetadata = getModelMetadataConfig(options);
 
   return {
     baseUrl,
     apiKey,
-    apiMode: getApiMode(provider.options),
+    apiMode: getApiMode(options),
     modelCacheTtl,
     refreshOnList,
     modelsDev,
     modelMetadata,
   };
+}
+
+async function readAuthFromStore(
+  providerId: string,
+): Promise<{ key?: string; type?: string } | null> {
+  try {
+    const dataHome = process.env.XDG_DATA_HOME || join(process.env.HOME || homedir(), '.local', 'share');
+    const authPath = join(dataHome, 'opencode', 'auth.json');
+    const content = await readFile(authPath, 'utf-8');
+    const data = JSON.parse(content);
+    if (!isRecord(data)) return null;
+    const auth = data[providerId];
+    if (!isRecord(auth)) return null;
+    return auth as { key?: string; type?: string };
+  } catch (error) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
+      return null;
+    }
+    console.warn('[OmniRoute] Unexpected error reading auth store:', error);
+    return null;
+  }
 }
 
 function resolveProviderApi(api: unknown, apiMode: OmniRouteApiMode): OmniRouteApiMode {
