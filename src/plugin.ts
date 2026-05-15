@@ -36,6 +36,8 @@ export const OmniRouteAuthPlugin: Plugin = async (_input) => {
       const apiMode = getApiMode(existingProvider?.options);
       const providerApi = resolveProviderApi(existingProvider?.api, apiMode);
 
+      // Eagerly fetch models for OpenCode <=1.14.48 (which read models from config hook).
+      // OpenCode >=1.14.49 uses the provider hook below instead.
       let models: OmniRouteModel[] = OMNIROUTE_DEFAULT_MODELS;
       try {
         const auth = await readAuthFromStore(OMNIROUTE_PROVIDER_ID);
@@ -65,6 +67,24 @@ export const OmniRouteAuthPlugin: Plugin = async (_input) => {
       };
 
       config.provider = providers;
+    },
+    // Provider hook for OpenCode >=1.14.49
+    provider: {
+      id: OMNIROUTE_PROVIDER_ID,
+      models: async (provider, ctx) => {
+        const baseUrl = getBaseUrl(provider.options);
+
+        // Auth available — fetch /v1/models (fetchModels falls back to defaults on error)
+        if (ctx.auth?.type === 'api' && ctx.auth.key) {
+          const runtimeConfig = createRuntimeConfig(provider.options, ctx.auth.key);
+          const models = await fetchModels(runtimeConfig, ctx.auth.key, false);
+          return toProviderModels(models, baseUrl);
+        }
+
+        // No auth yet (user hasn't /connect'd): return built-in defaults.
+        // This ensures models have the correct metadata (like api.url) to work with the plugin.
+        return toProviderModels(OMNIROUTE_DEFAULT_MODELS, baseUrl);
+      },
     },
     auth: createAuthHook(),
   };

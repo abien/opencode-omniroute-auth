@@ -93,9 +93,57 @@ declare module '@opencode-ai/plugin' {
     methods: AuthMethod[];
   }
 
+  // ProviderHook types (OpenCode >=1.14.49)
+  export interface ProviderHookContext {
+    auth?: Auth;
+  }
+
+  export interface ModelV2 {
+    id: string;
+    providerID: string;
+    family: string;
+    release_date: string;
+    api: { id: string; url: string; npm: string };
+    name: string;
+    capabilities: {
+      temperature: boolean;
+      reasoning: boolean;
+      attachment: boolean;
+      toolcall: boolean;
+      input: { text: boolean; audio: boolean; image: boolean; video: boolean; pdf: boolean };
+      output: { text: boolean; audio: boolean; image: boolean; video: boolean; pdf: boolean };
+      interleaved: boolean;
+    };
+    cost: { input: number; output: number; cache: { read: number; write: number } };
+    limit: { context: number; output: number };
+    status: 'active';
+    options: Record<string, unknown>;
+    headers: Record<string, string>;
+    variants: Record<string, unknown>;
+  }
+
+  export interface ProviderV2 {
+    id: string;
+    name: string;
+    source: string;
+    env: string[];
+    key?: string;
+    options: Record<string, unknown>;
+    models: Record<string, ModelV2>;
+  }
+
+  export interface ProviderHook {
+    id: string;
+    models?: (
+      provider: ProviderV2,
+      ctx: ProviderHookContext,
+    ) => Promise<Record<string, ModelV2>>;
+  }
+
   export interface Hooks {
     config?: (input: Config) => Promise<void>;
     auth?: AuthHook;
+    provider?: ProviderHook;
     [key: string]: unknown;
   }
 
