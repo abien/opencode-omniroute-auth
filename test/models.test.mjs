@@ -119,5 +119,5 @@ test('calculateLowestCommonCapabilities respects explicit attachment false', () 
     { id: 'without-attachment', attachment: false },
   ]);
 
-  assert.equal(capabilities.supportsAttachment, undefined);
+  assert.equal(capabilities.supportsAttachment, false);
 });

@@ -548,3 +548,59 @@ test('config hook preserves user modelMetadata match blocks', async () => {
     await rm(tempHome, { recursive: true, force: true });
   }
 });
+
+test('config hook respects explicit attachment false for vision models', async () => {
+  const tempHome = join(tmpdir(), `opencode-test-${Date.now()}`);
+  try {
+    await mkdir(join(tempHome, '.local', 'share', 'opencode'), { recursive: true });
+    await writeFile(
+      join(tempHome, '.local', 'share', 'opencode', 'auth.json'),
+      JSON.stringify({ omniroute: { type: 'api', key: 'test-key' } }),
+    );
+    process.env.HOME = tempHome;
+
+    global.fetch = async (input) => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url.endsWith('/v1/models')) {
+        return new Response(
+          JSON.stringify({
+            object: 'list',
+            data: [
+              {
+                id: 'vision-no-attachment',
+                name: 'Vision No Attachment',
+                supportsVision: true,
+                supportsAttachment: false,
+              },
+            ],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    };
+
+    const plugin = await OmniRouteAuthPlugin({});
+    const config = {
+      provider: {
+        omniroute: {
+          options: {
+            baseURL: 'http://localhost:20131/v1',
+          },
+        },
+      },
+    };
+
+    await plugin.config(config);
+
+    const model = config.provider.omniroute.models['vision-no-attachment'];
+    assert.equal(model.attachment, false);
+    assert.equal(model.capabilities.attachment, false);
+    assert.deepEqual(model.modalities.input, ['text', 'image']);
+  } finally {
+    await rm(tempHome, { recursive: true, force: true });
+  }
+});

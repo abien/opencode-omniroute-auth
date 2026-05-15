@@ -369,6 +369,8 @@ export function calculateLowestCommonCapabilities(
 
   if (hasAttachmentMetadata && allSupportAttachment) {
     result.supportsAttachment = true;
+  } else if (hasAttachmentMetadata) {
+    result.supportsAttachment = false;
   }
 
   // Streaming is generally supported by all modern models
