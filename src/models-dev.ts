@@ -305,6 +305,7 @@ export function calculateLowestCommonCapabilities(
   let allSupportTemperature = true;
   let allSupportReasoning = true;
   let allSupportAttachment = true;
+  let hasAttachmentMetadata = false;
   let allSupportStreaming = true;
 
   for (const model of models) {
@@ -334,8 +335,10 @@ export function calculateLowestCommonCapabilities(
     const supportsReasoning = model.reasoning === true;
     allSupportReasoning = allSupportReasoning && supportsReasoning;
 
-    const supportsAttachment = model.attachment === true;
-    allSupportAttachment = allSupportAttachment && supportsAttachment;
+    if (model.attachment !== undefined) {
+      hasAttachmentMetadata = true;
+      allSupportAttachment = allSupportAttachment && model.attachment;
+    }
   }
 
   const result: OmniRouteModelMetadata = {};
@@ -364,7 +367,7 @@ export function calculateLowestCommonCapabilities(
     result.supportsReasoning = true;
   }
 
-  if (allSupportAttachment) {
+  if (hasAttachmentMetadata && allSupportAttachment) {
     result.supportsAttachment = true;
   }
 

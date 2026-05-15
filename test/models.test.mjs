@@ -8,6 +8,7 @@ import {
   isCacheValid,
   refreshModels,
 } from '../dist/runtime.js';
+import { calculateLowestCommonCapabilities } from '../dist/src/models-dev.js';
 
 const ORIGINAL_FETCH = global.fetch;
 
@@ -101,4 +102,22 @@ test('fetchModels falls back to defaults when response shape is invalid', async 
   const models = await fetchModels(CONFIG, CONFIG.apiKey, true);
   assert.ok(models.length > 0);
   assert.ok(typeof models[0].id === 'string');
+});
+
+test('calculateLowestCommonCapabilities ignores missing attachment metadata', () => {
+  const capabilities = calculateLowestCommonCapabilities([
+    { id: 'with-attachment', attachment: true },
+    { id: 'without-attachment' },
+  ]);
+
+  assert.equal(capabilities.supportsAttachment, true);
+});
+
+test('calculateLowestCommonCapabilities respects explicit attachment false', () => {
+  const capabilities = calculateLowestCommonCapabilities([
+    { id: 'with-attachment', attachment: true },
+    { id: 'without-attachment', attachment: false },
+  ]);
+
+  assert.equal(capabilities.supportsAttachment, undefined);
 });
