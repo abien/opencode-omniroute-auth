@@ -5,7 +5,7 @@ import {
   MODEL_CACHE_TTL,
   REQUEST_TIMEOUT,
 } from './constants.js';
-import { getModelsDevIndex, normalizeModelKey } from './models-dev.js';
+import { getModelsDevIndex, normalizeModelKey, getSubscriptionFallback, stripVariantSuffix, MODEL_ALIASES } from './models-dev.js';
 import type { ModelsDevIndex } from './models-dev.js';
 import { enrichComboModels, clearComboCache } from './omniroute-combos.js';
 import { warn, debug } from './logger.js';
@@ -236,29 +236,59 @@ function applyModelsDevMetadata(
 ): OmniRouteModel {
   const { providerKey, modelKey } = splitOmniRouteModelForLookup(model.id);
   const providerAlias = resolveProviderAlias(providerKey, config);
-  const lookupKey = modelKey.toLowerCase();
-  const normalizedKey = normalizeModelKey(modelKey);
+
+  // Apply known model name aliases (e.g. kimi-k2.6-thinking → kimi-k2-thinking)
+  const resolvedKey = MODEL_ALIASES[modelKey] ?? modelKey;
+  const lookupKey = resolvedKey.toLowerCase();
+  const normalizedKey = normalizeModelKey(resolvedKey);
 
   // Try provider-specific exact match first
-  const providerExact = providerAlias
+  let best = providerAlias
     ? index.exactByProvider.get(providerAlias)?.get(lookupKey)
     : undefined;
 
   // Try provider-specific normalized match
-  const providerNorm = providerAlias
-    ? index.normalizedByProvider.get(providerAlias)?.get(normalizedKey)
-    : undefined;
+  if (!best && providerAlias) {
+    best = index.normalizedByProvider.get(providerAlias)?.get(normalizedKey);
+  }
+
+  // Variant suffix stripping: gpt-5.5-xhigh → gpt-5.5
+  if (!best) {
+    const { base, stripped } = stripVariantSuffix(modelKey);
+    if (stripped) {
+      const baseKey = base.toLowerCase();
+      if (providerAlias) {
+        best = index.exactByProvider.get(providerAlias)?.get(baseKey);
+      }
+      if (!best) {
+        const baseGlobalList = index.exactGlobal.get(baseKey);
+        best = baseGlobalList?.length === 1 ? baseGlobalList[0] : undefined;
+      }
+    }
+  }
+
+  // Subscription fallback: zai-coding-plan → zai, kimi-for-coding → moonshotai
+  if (!best && providerAlias) {
+    const fallback = getSubscriptionFallback(providerAlias);
+    if (fallback) {
+      best = index.exactByProvider.get(fallback)?.get(lookupKey);
+      if (!best) {
+        best = index.normalizedByProvider.get(fallback)?.get(normalizedKey);
+      }
+    }
+  }
 
   // Try global exact match (only if single match to avoid ambiguity)
-  const globalExactList = index.exactGlobal.get(lookupKey);
-  const globalExact = globalExactList?.length === 1 ? globalExactList[0] : undefined;
+  if (!best) {
+    const globalExactList = index.exactGlobal.get(lookupKey);
+    best = globalExactList?.length === 1 ? globalExactList[0] : undefined;
+  }
 
   // Try global normalized match (only if single match to avoid ambiguity)
-  const globalNormList = index.normalizedGlobal.get(normalizedKey);
-  const globalNorm = globalNormList?.length === 1 ? globalNormList[0] : undefined;
-
-  // Pick the best match (provider-specific preferred over global)
-  const best = providerExact ?? providerNorm ?? globalExact ?? globalNorm;
+  if (!best) {
+    const globalNormList = index.normalizedGlobal.get(normalizedKey);
+    best = globalNormList?.length === 1 ? globalNormList[0] : undefined;
+  }
 
   if (!best) return model;
 
@@ -278,7 +308,16 @@ function applyModelsDevMetadata(
       ? { supportsTools: true }
       : {}),
     ...(model.supportsStreaming === undefined
-      ? { supportsStreaming: true } // Assume streaming is supported by default
+      ? { supportsStreaming: true }
+      : {}),
+    ...(model.supportsTemperature === undefined && best.temperature !== undefined
+      ? { supportsTemperature: best.temperature }
+      : {}),
+    ...(model.supportsReasoning === undefined && best.reasoning !== undefined
+      ? { supportsReasoning: best.reasoning }
+      : {}),
+    ...(model.supportsAttachment === undefined && best.attachment !== undefined
+      ? { supportsAttachment: best.attachment }
       : {}),
   };
 }
@@ -336,6 +375,12 @@ function resolveProviderAlias(
     openrouter: 'openrouter',
     perplexity: 'perplexity',
     cohere: 'cohere',
+    glmt: 'zai-coding-plan',
+    glm: 'zai-coding-plan',
+    'kimi-coding': 'moonshotai',
+    kmc: 'moonshotai',
+    gh: 'google',
+    github: 'google',
     ...config.modelsDev?.providerAliases,
   };
 

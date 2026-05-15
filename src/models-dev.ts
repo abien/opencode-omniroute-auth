@@ -344,6 +344,26 @@ export function calculateLowestCommonCapabilities(
 
 
 /**
+ * Subscription → public provider fallback map.
+ * When a subscription provider (e.g. zai-coding-plan) lacks a model,
+ * try its public counterpart (e.g. zai) before giving up.
+ */
+export const SUBSCRIPTION_FALLBACKS: Record<string, string> = {
+  'zai-coding-plan': 'zai',
+  'kimi-for-coding': 'moonshotai',
+  'github-models': 'google',
+};
+
+/**
+ * Known model ID mismatches between OmniRoute and models.dev.
+ * Maps OmniRoute model names to their models.dev equivalents.
+ */
+export const MODEL_ALIASES: Record<string, string> = {
+  'kimi-k2.6-thinking': 'kimi-k2-thinking',
+  'kimi-k2.6-thinking-turbo': 'kimi-k2-thinking-turbo',
+};
+
+/**
  * Resolve provider alias using config and defaults
  */
 export function resolveProviderAlias(
@@ -372,8 +392,35 @@ export function resolveProviderAlias(
     openrouter: 'openrouter',
     perplexity: 'perplexity',
     cohere: 'cohere',
+    glmt: 'zai-coding-plan',
+    glm: 'zai-coding-plan',
+    'kimi-coding': 'moonshotai',
+    kmc: 'moonshotai',
+    gh: 'google',
+    github: 'google',
     ...config?.modelsDev?.providerAliases,
   };
 
   return aliases[lower] ?? lower;
+}
+
+/**
+ * Get the public fallback provider for a subscription provider.
+ * Returns null if no fallback exists.
+ */
+export function getSubscriptionFallback(provider: string): string | null {
+  return SUBSCRIPTION_FALLBACKS[provider.toLowerCase()] ?? null;
+}
+
+/**
+ * Strip reasoning effort variant suffix from a model name.
+ * Returns the base model name and true if a suffix was stripped.
+ */
+export function stripVariantSuffix(modelKey: string): { base: string; stripped: boolean } {
+  const variantPattern = /-(low|medium|high|xhigh)$/i;
+  const match = modelKey.match(variantPattern);
+  if (match) {
+    return { base: modelKey.slice(0, match.index), stripped: true };
+  }
+  return { base: modelKey, stripped: false };
 }

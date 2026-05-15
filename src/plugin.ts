@@ -6,6 +6,7 @@ import type {
   OmniRouteApiMode,
   OmniRouteConfig,
   OmniRouteModel,
+  OmniRouteModelMetadata,
   OmniRouteModelMetadataConfig,
   OmniRouteModelsDevConfig,
   OmniRouteProviderModel,
@@ -41,12 +42,29 @@ export const OmniRouteAuthPlugin: Plugin = async (_input) => {
       let models: OmniRouteModel[] = OMNIROUTE_DEFAULT_MODELS;
       try {
         const auth = await readAuthFromStore(OMNIROUTE_PROVIDER_ID);
-        if (auth?.key) {
-          const runtimeConfig = createRuntimeConfig(existingProvider?.options ?? {}, auth.key);
-          models = await fetchModels(runtimeConfig, auth.key, false);
+        const apiKey = auth?.key || process.env.OMNIROUTE_API_KEY;
+        if (apiKey) {
+          const runtimeConfig = createRuntimeConfig(existingProvider?.options ?? {}, apiKey);
+          models = await fetchModels(runtimeConfig, apiKey, false);
         }
       } catch (error) {
         warn(`Eager model fetch failed, using defaults: ${error}`);
+      }
+
+      // Build modelMetadata from enriched models for OpenCode to apply capabilities
+      const modelMetadata: Record<string, OmniRouteModelMetadata> = {};
+      for (const model of models) {
+        modelMetadata[model.id] = {
+          contextWindow: model.contextWindow,
+          maxTokens: model.maxTokens,
+          supportsTemperature: model.supportsTemperature,
+          supportsReasoning: model.supportsReasoning,
+          supportsAttachment: model.supportsAttachment,
+          supportsVision: model.supportsVision,
+          supportsTools: model.supportsTools,
+          supportsStreaming: model.supportsStreaming,
+          pricing: model.pricing,
+        };
       }
 
       providers[OMNIROUTE_PROVIDER_ID] = {
@@ -59,6 +77,7 @@ export const OmniRouteAuthPlugin: Plugin = async (_input) => {
           ...(existingProvider?.options ?? {}),
           baseURL: baseUrl,
           apiMode,
+          modelMetadata,
         },
         models:
           existingProvider?.models && Object.keys(existingProvider.models).length > 0
@@ -377,6 +396,9 @@ function toProviderModels(
 function toProviderModel(model: OmniRouteModel, baseUrl: string): OmniRouteProviderModel {
   const supportsVision = model.supportsVision === true;
   const supportsTools = model.supportsTools !== false;
+  const supportsTemperature = model.supportsTemperature !== false;
+  const supportsReasoning = model.supportsReasoning === true;
+  const supportsAttachment = model.supportsAttachment === true || supportsVision;
 
   return {
     id: model.id,
@@ -384,15 +406,23 @@ function toProviderModel(model: OmniRouteModel, baseUrl: string): OmniRouteProvi
     providerID: OMNIROUTE_PROVIDER_ID,
     family: getModelFamily(model.id),
     release_date: '',
+    attachment: supportsAttachment,
+    reasoning: supportsReasoning,
+    temperature: supportsTemperature,
+    tool_call: supportsTools,
+    modalities: {
+      input: supportsVision ? ['text', 'image'] as const : ['text'] as const,
+      output: ['text'] as const,
+    },
     api: {
       id: model.id,
       url: baseUrl,
       npm: OMNIROUTE_PROVIDER_NPM,
     },
     capabilities: {
-      temperature: true,
-      reasoning: false,
-      attachment: supportsVision,
+      temperature: supportsTemperature,
+      reasoning: supportsReasoning,
+      attachment: supportsAttachment,
       toolcall: supportsTools,
       input: {
         text: true,
@@ -425,7 +455,13 @@ function toProviderModel(model: OmniRouteModel, baseUrl: string): OmniRouteProvi
     options: {},
     headers: {},
     status: 'active',
-    variants: {},
+    variants: supportsReasoning
+      ? {
+          low: { reasoningEffort: 'low' },
+          medium: { reasoningEffort: 'medium' },
+          high: { reasoningEffort: 'high' },
+        }
+      : {},
   };
 }
 

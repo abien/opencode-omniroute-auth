@@ -10,6 +10,9 @@ export interface OmniRouteModel {
   supportsStreaming?: boolean;
   supportsVision?: boolean;
   supportsTools?: boolean;
+  supportsTemperature?: boolean;
+  supportsReasoning?: boolean;
+  supportsAttachment?: boolean;
   pricing?: {
     input?: number;
     output?: number;
@@ -24,6 +27,9 @@ export interface OmniRouteModelMetadata {
   supportsStreaming?: boolean;
   supportsVision?: boolean;
   supportsTools?: boolean;
+  supportsTemperature?: boolean;
+  supportsReasoning?: boolean;
+  supportsAttachment?: boolean;
   pricing?: {
     input?: number;
     output?: number;
@@ -108,6 +114,14 @@ export interface OmniRouteProviderModel {
   providerID: string;
   family: string;
   release_date: string;
+  attachment?: boolean;
+  reasoning?: boolean;
+  temperature?: boolean;
+  tool_call?: boolean;
+  modalities?: {
+    input: readonly string[];
+    output: readonly string[];
+  };
   api: {
     id: string;
     url: string;
