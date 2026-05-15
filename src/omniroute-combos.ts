@@ -366,6 +366,15 @@ export async function enrichComboModels(
         ...(capabilities.maxTokens !== undefined ? { maxTokens: capabilities.maxTokens } : {}),
         ...(capabilities.supportsVision !== undefined ? { supportsVision: capabilities.supportsVision } : {}),
         ...(capabilities.supportsTools !== undefined ? { supportsTools: capabilities.supportsTools } : {}),
+        ...(capabilities.supportsTemperature !== undefined
+          ? { supportsTemperature: capabilities.supportsTemperature }
+          : {}),
+        ...(capabilities.supportsReasoning !== undefined
+          ? { supportsReasoning: capabilities.supportsReasoning }
+          : {}),
+        ...(capabilities.supportsAttachment !== undefined
+          ? { supportsAttachment: capabilities.supportsAttachment }
+          : {}),
         ...(capabilities.supportsStreaming !== undefined ? { supportsStreaming: capabilities.supportsStreaming } : {}),
         ...(capabilities.pricing !== undefined ? { pricing: { ...model.pricing, ...capabilities.pricing } } : {}),
       };

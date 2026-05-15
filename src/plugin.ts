@@ -51,10 +51,9 @@ export const OmniRouteAuthPlugin: Plugin = async (_input) => {
         warn(`Eager model fetch failed, using defaults: ${error}`);
       }
 
-      // Build modelMetadata from enriched models for OpenCode to apply capabilities
-      const modelMetadata: Record<string, OmniRouteModelMetadata> = {};
+      const generatedModelMetadata: Record<string, OmniRouteModelMetadata> = {};
       for (const model of models) {
-        modelMetadata[model.id] = {
+        generatedModelMetadata[model.id] = {
           contextWindow: model.contextWindow,
           maxTokens: model.maxTokens,
           supportsTemperature: model.supportsTemperature,
@@ -66,6 +65,11 @@ export const OmniRouteAuthPlugin: Plugin = async (_input) => {
           pricing: model.pricing,
         };
       }
+
+      const modelMetadata = mergeModelMetadata(
+        existingProvider?.options?.modelMetadata,
+        generatedModelMetadata,
+      );
 
       providers[OMNIROUTE_PROVIDER_ID] = {
         ...existingProvider,
@@ -342,6 +346,36 @@ function getStringRecord(value: unknown): Record<string, string> | undefined {
   }
 
   return Object.keys(out).length > 0 ? out : undefined;
+}
+
+function mergeModelMetadata(
+  rawUserConfig: unknown,
+  generated: Record<string, OmniRouteModelMetadata>,
+): OmniRouteModelMetadataConfig {
+  const userConfig = getModelMetadataConfig({ modelMetadata: rawUserConfig });
+
+  if (Array.isArray(userConfig)) {
+    const generatedBlocks = Object.entries(generated).map(([id, metadata]) => ({
+      match: id,
+      ...metadata,
+    }));
+
+    return [...generatedBlocks, ...userConfig];
+  }
+
+  if (userConfig && isRecord(userConfig)) {
+    const merged: Record<string, OmniRouteModelMetadata> = { ...generated };
+    for (const [id, metadata] of Object.entries(userConfig)) {
+      if (!isRecord(metadata)) continue;
+      merged[id] = {
+        ...(generated[id] ?? {}),
+        ...(metadata as OmniRouteModelMetadata),
+      };
+    }
+    return merged;
+  }
+
+  return generated;
 }
 
 function isRegExp(value: unknown): value is RegExp {

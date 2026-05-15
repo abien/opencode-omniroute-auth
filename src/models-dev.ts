@@ -246,6 +246,18 @@ export function modelsDevToMetadata(model: ModelsDevModel): OmniRouteModelMetada
     metadata.maxTokens = model.limit.output;
   }
 
+  if (model.temperature !== undefined) {
+    metadata.supportsTemperature = model.temperature;
+  }
+
+  if (model.reasoning !== undefined) {
+    metadata.supportsReasoning = model.reasoning;
+  }
+
+  if (model.attachment !== undefined) {
+    metadata.supportsAttachment = model.attachment;
+  }
+
   // Derive vision support from modalities
   if (model.modalities?.input?.includes('image')) {
     metadata.supportsVision = true;
@@ -255,8 +267,6 @@ export function modelsDevToMetadata(model: ModelsDevModel): OmniRouteModelMetada
   if (model.tool_call === true) {
     metadata.supportsTools = true;
   }
-
-
 
   // Pricing
   if (model.cost?.input !== undefined || model.cost?.output !== undefined) {
@@ -292,6 +302,9 @@ export function calculateLowestCommonCapabilities(
   let minMaxTokens: number | undefined;
   let allSupportVision = true;
   let allSupportTools = true;
+  let allSupportTemperature = true;
+  let allSupportReasoning = true;
+  let allSupportAttachment = true;
   let allSupportStreaming = true;
 
   for (const model of models) {
@@ -314,6 +327,15 @@ export function calculateLowestCommonCapabilities(
     // Tools: all must support it
     const supportsTools = model.tool_call === true;
     allSupportTools = allSupportTools && supportsTools;
+
+    const supportsTemperature = model.temperature === true;
+    allSupportTemperature = allSupportTemperature && supportsTemperature;
+
+    const supportsReasoning = model.reasoning === true;
+    allSupportReasoning = allSupportReasoning && supportsReasoning;
+
+    const supportsAttachment = model.attachment === true;
+    allSupportAttachment = allSupportAttachment && supportsAttachment;
   }
 
   const result: OmniRouteModelMetadata = {};
@@ -332,6 +354,18 @@ export function calculateLowestCommonCapabilities(
 
   if (allSupportTools) {
     result.supportsTools = true;
+  }
+
+  if (allSupportTemperature) {
+    result.supportsTemperature = true;
+  }
+
+  if (allSupportReasoning) {
+    result.supportsReasoning = true;
+  }
+
+  if (allSupportAttachment) {
+    result.supportsAttachment = true;
   }
 
   // Streaming is generally supported by all modern models
@@ -362,6 +396,11 @@ export const MODEL_ALIASES: Record<string, string> = {
   'kimi-k2.6-thinking': 'kimi-k2-thinking',
   'kimi-k2.6-thinking-turbo': 'kimi-k2-thinking-turbo',
 };
+
+export function resolveModelAlias(modelKey: string): string {
+  const lower = modelKey.toLowerCase();
+  return MODEL_ALIASES[lower] ?? MODEL_ALIASES[normalizeModelKey(lower)] ?? modelKey;
+}
 
 /**
  * Resolve provider alias using config and defaults
