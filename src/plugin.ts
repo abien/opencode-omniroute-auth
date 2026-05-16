@@ -366,10 +366,13 @@ function mergeModelMetadata(
   if (userConfig && isRecord(userConfig)) {
     const merged: Record<string, OmniRouteModelMetadata> = { ...generated };
     for (const [id, metadata] of Object.entries(userConfig)) {
-      if (!isRecord(metadata)) continue;
+      if (!isValidModelMetadata(metadata)) {
+        warn(`Invalid metadata for model "${id}", skipping`);
+        continue;
+      }
       merged[id] = {
         ...(generated[id] ?? {}),
-        ...(metadata as OmniRouteModelMetadata),
+        ...metadata,
       };
     }
     return merged;
@@ -414,6 +417,28 @@ function replaceProviderModels(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isValidModelMetadata(value: unknown): value is OmniRouteModelMetadata {
+  if (!isRecord(value)) return false;
+
+  // Only validate boolean fields if present
+  const booleanFields = [
+    'supportsStreaming', 'supportsVision', 'supportsTools',
+    'supportsTemperature', 'supportsReasoning', 'supportsAttachment',
+  ];
+
+  for (const field of booleanFields) {
+    if (field in value && typeof value[field] !== 'boolean') {
+      return false;
+    }
+  }
+
+  // Validate numeric fields
+  if ('contextWindow' in value && typeof value.contextWindow !== 'number') return false;
+  if ('maxTokens' in value && typeof value.maxTokens !== 'number') return false;
+
+  return true;
 }
 
 function toProviderModels(
