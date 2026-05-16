@@ -42,7 +42,7 @@ export const OmniRouteAuthPlugin: Plugin = async (_input) => {
       let models: OmniRouteModel[] = OMNIROUTE_DEFAULT_MODELS;
       try {
         const auth = await readAuthFromStore(OMNIROUTE_PROVIDER_ID);
-        const apiKey = auth?.key || process.env.OMNIROUTE_API_KEY;
+        const apiKey = auth?.key ?? process.env.OMNIROUTE_API_KEY;
         if (apiKey) {
           const runtimeConfig = createRuntimeConfig(existingProvider?.options ?? {}, apiKey);
           models = await fetchModels(runtimeConfig, apiKey, false);
