@@ -14,7 +14,7 @@ import {
   resolveModelAlias,
 } from './models-dev.js';
 import type { ModelsDevIndex, ModelsDevModel } from './models-dev.js';
-import { enrichComboModels, clearComboCache } from './omniroute-combos.js';
+import { enrichComboModels, clearComboCache, splitModelId } from './omniroute-combos.js';
 import { warn, debug } from './logger.js';
 
 /**
@@ -254,7 +254,7 @@ function applyModelsDevMetadata(
   config: OmniRouteConfig,
   index: ModelsDevIndex,
 ): OmniRouteModel {
-  const { providerKey, modelKey } = splitOmniRouteModelForLookup(model.id);
+  const { providerKey, modelKey } = splitModelId(model.id);
   const providerAlias = resolveProviderAlias(providerKey, config);
   const candidates = getModelLookupCandidates(modelKey);
   const providerCandidates = [
@@ -344,26 +344,4 @@ function lookupModelsDevModel(
   return undefined;
 }
 
-/**
- * Split model ID for models.dev lookup
- */
-function splitOmniRouteModelForLookup(
-  modelId: string,
-): { providerKey: string | null; modelKey: string } {
-  const trimmed = modelId.trim();
 
-  // Remove omniroute prefix if present
-  const withoutPrefix = trimmed.replace(/^omniroute\//, '');
-
-  // Split by /
-  const parts = withoutPrefix.split('/').filter((p) => p.trim() !== '');
-
-  if (parts.length >= 2) {
-    return {
-      providerKey: parts[0] ?? null,
-      modelKey: parts.slice(1).join('/'),
-    };
-  }
-
-  return { providerKey: null, modelKey: withoutPrefix };
-}

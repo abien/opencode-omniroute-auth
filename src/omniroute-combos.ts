@@ -224,7 +224,7 @@ export function lookupModelInIndex(
  * Split a model ID into provider and model key
  * Handles formats like "provider/model", "omniroute/provider/model", etc.
  */
-function splitModelId(modelId: string): { providerKey: string | null; modelKey: string } {
+export function splitModelId(modelId: string): { providerKey: string | null; modelKey: string } {
   const trimmed = modelId.trim();
 
   // Remove omniroute prefix if present
