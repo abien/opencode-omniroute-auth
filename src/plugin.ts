@@ -366,8 +366,9 @@ function mergeModelMetadata(
   if (userConfig && isRecord(userConfig)) {
     const merged: Record<string, OmniRouteModelMetadata> = { ...generated };
     for (const [id, metadata] of Object.entries(userConfig)) {
-      if (!isValidModelMetadata(metadata)) {
-        warn(`Invalid metadata for model "${id}", skipping`);
+      const validation = isValidModelMetadata(metadata);
+      if (!validation.valid) {
+        warn(`Invalid metadata for model "${id}" (field: ${validation.field}), skipping`);
         continue;
       }
       merged[id] = {
@@ -419,26 +420,46 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function isValidModelMetadata(value: unknown): value is OmniRouteModelMetadata {
-  if (!isRecord(value)) return false;
+const BOOLEAN_FIELDS = [
+  'supportsStreaming', 'supportsVision', 'supportsTools',
+  'supportsTemperature', 'supportsReasoning', 'supportsAttachment',
+];
 
-  // Only validate boolean fields if present
-  const booleanFields = [
-    'supportsStreaming', 'supportsVision', 'supportsTools',
-    'supportsTemperature', 'supportsReasoning', 'supportsAttachment',
-  ];
+function isValidModelMetadata(value: unknown): { valid: boolean; field?: string } {
+  if (!isRecord(value)) return { valid: false, field: '(not an object)' };
 
-  for (const field of booleanFields) {
+  for (const field of BOOLEAN_FIELDS) {
     if (field in value && typeof value[field] !== 'boolean') {
-      return false;
+      return { valid: false, field };
     }
   }
 
-  // Validate numeric fields
-  if ('contextWindow' in value && typeof value.contextWindow !== 'number') return false;
-  if ('maxTokens' in value && typeof value.maxTokens !== 'number') return false;
+  if ('contextWindow' in value && typeof value.contextWindow !== 'number') {
+    return { valid: false, field: 'contextWindow' };
+  }
+  if ('maxTokens' in value && typeof value.maxTokens !== 'number') {
+    return { valid: false, field: 'maxTokens' };
+  }
+  if ('name' in value && typeof value.name !== 'string') {
+    return { valid: false, field: 'name' };
+  }
+  if ('description' in value && typeof value.description !== 'string') {
+    return { valid: false, field: 'description' };
+  }
+  if ('pricing' in value) {
+    const pricing = value.pricing;
+    if (!isRecord(pricing)) {
+      return { valid: false, field: 'pricing' };
+    }
+    if ('input' in pricing && typeof pricing.input !== 'number') {
+      return { valid: false, field: 'pricing.input' };
+    }
+    if ('output' in pricing && typeof pricing.output !== 'number') {
+      return { valid: false, field: 'pricing.output' };
+    }
+  }
 
-  return true;
+  return { valid: true };
 }
 
 function toProviderModels(
