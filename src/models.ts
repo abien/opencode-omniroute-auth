@@ -35,7 +35,17 @@ const modelCache = new Map<string, ModelCache>();
  */
 function getCacheKey(config: OmniRouteConfig, apiKey: string): string {
   const baseUrl = config.baseUrl || OMNIROUTE_ENDPOINTS.BASE_URL;
-  return `${baseUrl}:${apiKey}`;
+
+  // Include modelsDev config in cache key to prevent stale data
+  const modelsDevHash = config.modelsDev
+    ? JSON.stringify({
+        enabled: config.modelsDev.enabled,
+        url: config.modelsDev.url,
+        providerAliases: config.modelsDev.providerAliases,
+      })
+    : '';
+
+  return `${baseUrl}:${apiKey}:${modelsDevHash}`;
 }
 
 /**

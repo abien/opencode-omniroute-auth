@@ -121,3 +121,26 @@ test('calculateLowestCommonCapabilities respects explicit attachment false', () 
 
   assert.equal(capabilities.supportsAttachment, false);
 });
+
+test('fetchModels uses different cache for different modelsDev configs', async () => {
+  let calls = 0;
+  global.fetch = async (input) => {
+    const url = input instanceof Request ? input.url : input.toString();
+    if (url.includes('/v1/models')) {
+      calls++;
+      return new Response(
+        JSON.stringify({ object: 'list', data: [{ id: `model-${calls}`, name: `Model ${calls}` }] }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+    return new Response(JSON.stringify({ data: [] }), { status: 200 });
+  };
+
+  const config1 = { ...CONFIG, modelsDev: { enabled: true, providerAliases: { oai: 'openai' } } };
+  const config2 = { ...CONFIG, modelsDev: { enabled: true, providerAliases: { oai: 'anthropic' } } };
+
+  await fetchModels(config1, CONFIG.apiKey, false);
+  await fetchModels(config2, CONFIG.apiKey, false);
+
+  assert.equal(calls, 2, 'Should fetch twice for different modelsDev configs');
+});
