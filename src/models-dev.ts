@@ -303,7 +303,9 @@ export function calculateLowestCommonCapabilities(
   let allSupportVision = true;
   let allSupportTools = true;
   let allSupportTemperature = true;
+  let hasTemperatureMetadata = false;
   let allSupportReasoning = true;
+  let hasReasoningMetadata = false;
   let allSupportAttachment = true;
   let hasAttachmentMetadata = false;
   let allSupportStreaming = true;
@@ -329,11 +331,15 @@ export function calculateLowestCommonCapabilities(
     const supportsTools = model.tool_call === true;
     allSupportTools = allSupportTools && supportsTools;
 
-    const supportsTemperature = model.temperature === true;
-    allSupportTemperature = allSupportTemperature && supportsTemperature;
+    if (model.temperature !== undefined) {
+      hasTemperatureMetadata = true;
+      allSupportTemperature = allSupportTemperature && model.temperature;
+    }
 
-    const supportsReasoning = model.reasoning === true;
-    allSupportReasoning = allSupportReasoning && supportsReasoning;
+    if (model.reasoning !== undefined) {
+      hasReasoningMetadata = true;
+      allSupportReasoning = allSupportReasoning && model.reasoning;
+    }
 
     if (model.attachment !== undefined) {
       hasAttachmentMetadata = true;
@@ -359,12 +365,16 @@ export function calculateLowestCommonCapabilities(
     result.supportsTools = true;
   }
 
-  if (allSupportTemperature) {
+  if (hasTemperatureMetadata && allSupportTemperature) {
     result.supportsTemperature = true;
+  } else if (hasTemperatureMetadata) {
+    result.supportsTemperature = false;
   }
 
-  if (allSupportReasoning) {
+  if (hasReasoningMetadata && allSupportReasoning) {
     result.supportsReasoning = true;
+  } else if (hasReasoningMetadata) {
+    result.supportsReasoning = false;
   }
 
   if (hasAttachmentMetadata && allSupportAttachment) {

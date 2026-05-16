@@ -292,6 +292,8 @@ function getModelLookupCandidates(modelKey: string): string[] {
   const addCandidate = (key: string): void => {
     candidates.add(key.toLowerCase());
     candidates.add(resolveModelAlias(key).toLowerCase());
+    candidates.add(normalizeModelKey(key));
+    candidates.add(normalizeModelKey(resolveModelAlias(key)));
   };
 
   addCandidate(modelKey);

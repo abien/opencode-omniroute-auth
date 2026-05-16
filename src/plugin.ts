@@ -432,7 +432,7 @@ function toProviderModel(model: OmniRouteModel, baseUrl: string): OmniRouteProvi
   const supportsTools = model.supportsTools !== false;
   const supportsTemperature = model.supportsTemperature !== false;
   const supportsReasoning = model.supportsReasoning === true;
-  const supportsAttachment = model.supportsAttachment ?? supportsVision;
+  const supportsAttachment = model.supportsAttachment !== undefined ? model.supportsAttachment : supportsVision;
 
   return {
     id: model.id,
